@@ -23,10 +23,12 @@ process FASTP {
         -i ${read} \
         -o ${sample_id}.trimmed.fastq.gz \
         --adapter_sequence auto\
-        --cut_tail \
-        --cut_mean_quality 20 \
+        --trim_poly_g \
+        --qualified_quality_phred 20 \
+        --unqualified_percent_limit 30 \
+        --n_base_limit 5 \
         --length_required 30 \
-        --thread 4 \
+        --thread 8 \
         --html ${sample_id}.fastp.html \
         --json ${sample_id}.fastp.json
     """
