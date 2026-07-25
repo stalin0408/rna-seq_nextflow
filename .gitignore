@@ -30,3 +30,7 @@ phase2_plan
 .Rhistory
 .RData
 .Rproj.user/
+
+*.swp
+*.swo
+*~
