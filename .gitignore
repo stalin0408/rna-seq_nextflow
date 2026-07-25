@@ -1,0 +1,32 @@
+# Nextflow
+.nextflow/
+.nextflow*
+work/
+
+# Results
+results/
+report.html
+timeline.html
+flow.png
+trace-*
+
+# Input data
+data/
+
+# Genome reference
+genome/
+
+# Temporary / notes
+phase2_plan
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# R
+.Rhistory
+.RData
+.Rproj.user/
