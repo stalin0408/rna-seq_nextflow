@@ -22,6 +22,7 @@ args <- commandArgs(trailingOnly = TRUE)
 
 count_file   <- args[1]
 metadata_file <- args[2]
+design <- as.formula(args[3])
 outdir       <- args[3]
 
 dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
@@ -60,22 +61,59 @@ metadata <- read.table(metadata_file,
 header = TRUE,
 sep = "",
 stringsAsFactors = TRUE)
-
+if(!"sample" %in% colnames(metadata)){
+    stop("Metadata should contain a column named 'sample'.")
+}
 rownames(metadata) <- metadata$sample
-metadata <- metadata[, -1]
+metadata <- metadata[, colnames(metadata) != "sample"]
 
 cat("✅ Metadata loaded:", dim(metadata), "\n")
+
+cat("Metadata columns:\n")
+print(colnames(metadata))
+
+cat("Design formula:\n")
+print(design)
+
+# Extract variable names from the design formula
+design_vars <- all.vars(design)
+
+cat("Variables in design:\n")
+print(design_vars)
+
+# Find missing variables
+missing_vars <- setdiff(design_vars, colnames(metadata))
+
+if (length(missing_vars) > 0) {
+    stop(
+        paste0(
+            "\n❌ Invalid design formula.\n",
+            "Missing metadata column(s): ",
+            paste(missing_vars, collapse = ", "),
+            "\n\nAvailable metadata columns:\n",
+            paste(colnames(metadata), collapse = ", ")
+        )
+    )
+}
+
+cat("✅ Design formula validated successfully.\n")
 
 #---------------------------------------------
 cat("\n===== COUNT MATRIX =====\n")
 cat("Dimensions:", dim(count), "\n")
 
+# Set gene IDs as row names
+rownames(count) <- count$Geneid
+
 cat("\nColumn names first print:\n")
 print(colnames(count))
 
-count <- count[, 6:ncol(count)]
+sample_cols <- !colnames(count) %in% c(
+    "Geneid","GeneID",
+    "Chr","Start","End","Strand","Length"
+)
 
-
+count <- count[, sample_cols]
 
 # Remove featureCounts suffix
 colnames(count) <- sub(
@@ -138,7 +176,7 @@ print("test1")
 dds <- DESeqDataSetFromMatrix(
 countData = count,
 colData = metadata,
-design = ~ genotype + zinc
+design = design
 )
 
 # ==========================================
@@ -221,81 +259,83 @@ print("test4")
 # ==========================================
 # DESeq2 Results
 # ==========================================
-res <- results(dds)
 
-print(resultsNames(dds))
-print("test5")
-res_genotype <- results(dds, name = "genotype_WT_vs_uzcR")
-res_genotype <- res_genotype[order(res_genotype$padj, na.last = TRUE), ]
-res_zinc <- results(dds, name = "zinc_Zn_vs_noZn")
-res_zinc <- res_zinc[order(res_zinc$padj, na.last = TRUE), ]
-print("test6")
-dir.create(file.path(outdir, "dea"),
-           recursive = TRUE,
-           showWarnings = FALSE)
+coef_names <- resultsNames(dds)
 
-write.csv(
-    as.data.frame(res_genotype),
-    file = file.path(outdir, "dea", "DE_genotype_results.csv"),
-    row.names = TRUE
+print(coef_names)
+
+dir.create(
+    file.path(outdir, "dea"),
+    recursive = TRUE,
+    showWarnings = FALSE
 )
-write.csv(
-    as.data.frame(res_zinc),
-    file = file.path(outdir, "dea", "DE_zinc_results.csv"),
-    row.names = TRUE
-)
-print("test7")
-# ==========================================
-# Significant Genes
-# ==========================================
-resSig_genotype <- res_genotype[which(res_genotype$padj < 0.05), ]
-resSig_zinc <- res_zinc[which(res_zinc$padj < 0.05), ]
 
-write.csv(as.data.frame(resSig_genotype),
-          file = file.path(outdir, "dea/DE_genotype_significant.csv"))
-write.csv(as.data.frame(resSig_zinc),
-          file = file.path(outdir, "dea/DE_zinc_significant.csv"))
-print("test8")
-# ==========================================
-# Volcano Plot
-# ==========================================
-pdf(file.path(outdir, "plots/volcano_genotype.pdf"))
-plot(res_genotype$log2FoldChange,
-     -log10(res_genotype$pvalue),
-     pch = 20,
-     main = "Volcano Plot",
-     xlab = "Log2 Fold Change",
-     ylab = "-log10 p-value")
-dev.off()
-print("test9")
-pdf(file.path(outdir, "plots/volcano_zinc.pdf"))
-plot(res_zinc$log2FoldChange,
-     -log10(res_zinc$pvalue),
-     pch = 20,
-     main = "Volcano Plot",
-     xlab = "Log2 Fold Change",
-     ylab = "-log10 p-value")
-dev.off()
-print("test9")
-# ==========================================
-# Heatmap of Top Genes
-# ==========================================
-topGenes_genotype <- head(order(res_genotype$padj), 20)
-topGenes_zinc <- head(order(res_zinc$padj), 20)
+for (coef in coef_names) {
 
+    # Skip intercept
+    if (coef == "Intercept")
+        next
 
-pdf(file.path(outdir, "plots/top_genes_heatmap_g.pdf"))
-pheatmap(assay(vsd)[topGenes_genotype, ],
-         cluster_rows = TRUE,
-         cluster_cols = TRUE)
-dev.off()
-pdf(file.path(outdir, "plots/top_genes_heatmap_z.pdf"))
-pheatmap(assay(vsd)[topGenes_zinc, ],
-         cluster_rows = TRUE,
-         cluster_cols = TRUE)
-dev.off()
-print("test10")
-# ==========================================
-# DONE
-# ==========================================
+    res <- results(dds, name = coef)
+
+    res <- res[order(res$padj, na.last = TRUE), ]
+
+    write.csv(
+        as.data.frame(res),
+        file = file.path(outdir, "dea", paste0(coef, ".csv")),
+        row.names = TRUE
+    )
+
+    # ------------------------------
+    # Significant genes
+    # ------------------------------
+    resSig <- res[which(res$padj < 0.05), ]
+
+    write.csv(
+        as.data.frame(resSig),
+        file = file.path(outdir,
+                         "dea",
+                         paste0(coef, "_significant.csv")),
+        row.names = TRUE
+    )
+
+    # ------------------------------
+    # Volcano Plot
+    # ------------------------------
+    pdf(file.path(outdir,
+                  "plots",
+                  paste0("volcano_", coef, ".pdf")))
+
+    plot(
+        res$log2FoldChange,
+        -log10(res$pvalue),
+        pch = 20,
+        main = coef,
+        xlab = "Log2 Fold Change",
+        ylab = "-log10(p-value)"
+    )
+
+    dev.off()
+
+    # ------------------------------
+    # Top 20 genes
+    # ------------------------------
+    topGenes <- head(order(res$padj), 20)
+
+    pdf(file.path(outdir,
+                  "plots",
+                  paste0("heatmap_", coef, ".pdf")))
+
+    pheatmap(
+        assay(vsd)[topGenes, ],
+        cluster_rows = TRUE,
+        cluster_cols = TRUE,
+        main = coef
+    )
+
+    dev.off()
+}
+
 cat("🎉 RNA-seq pipeline completed successfully!\n")
+
+

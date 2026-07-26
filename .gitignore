@@ -34,3 +34,5 @@ phase2_plan
 *.swp
 *.swo
 *~
+# Docker
+docker/.dockerignore

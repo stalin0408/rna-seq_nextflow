@@ -9,12 +9,14 @@ workflow RNASEQ_WORKFLOW {
     counts
     metadata
     script_file
+    design
 
     main:
     results = DESEQ2_ANALYSIS(
         counts,
         metadata,
-        script_file
+        script_file,
+        design
     )
 
 //    GENERATE_REPORT(results.collect())

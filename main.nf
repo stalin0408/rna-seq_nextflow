@@ -31,7 +31,9 @@ workflow {
     deseq2_result = RNASEQ_WORKFLOW(
         featurecounts_out.counts,
         file(params.meta),
-        file(params.script_file)
+        file(params.script_file),
+        params.design
+
     )
 
 

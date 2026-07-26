@@ -1,80 +1,137 @@
-FROM rocker/tidyverse:latest
+# ============================================================
+# RNA-seq Nextflow Pipeline Docker Image
+# Author: Stalin Dany Shaji
+# ============================================================
+
+FROM rocker/tidyverse:4.5.1
 
 LABEL maintainer="Stalin Dany Shaji"
+LABEL org.opencontainers.image.title="RNA-seq Nextflow Pipeline"
+LABEL org.opencontainers.image.description="RNA-seq differential expression analysis using Nextflow, STAR, featureCounts and DESeq2"
+LABEL org.opencontainers.image.version="1.0.0"
 
-# System dependencies
+ENV DEBIAN_FRONTEND=noninteractive
+ENV CONDA_DIR=/opt/conda
+ENV PATH=${CONDA_DIR}/bin:/usr/local/bin:$PATH
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+# ============================================================
+# System Dependencies
+# ============================================================
+
 RUN apt-get update && apt-get install -y \
     wget \
     curl \
-    unzip \
     git \
-    openjdk-17-jdk \
-    python3 \
-    python3-pip \
+    unzip \
+    bzip2 \
+    ca-certificates \
     build-essential \
+    openjdk-17-jdk \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
+# ============================================================
+# Install Nextflow
+# ============================================================
 
+RUN curl -s https://get.nextflow.io | bash && \
+    mv nextflow /usr/local/bin/ && \
+    chmod +x /usr/local/bin/nextflow
 
+# ============================================================
 # Install Miniconda
-ENV CONDA_DIR=/opt/conda
+# ============================================================
 
 RUN wget -qO /tmp/miniconda.sh \
     https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
     bash /tmp/miniconda.sh -b -p ${CONDA_DIR} && \
     rm /tmp/miniconda.sh
 
-ENV PATH=${CONDA_DIR}/bin:$PATH
+# ============================================================
+# Configure Conda
+# ============================================================
 
-# Verify conda exists
-RUN conda --version
-
-# Configure channels
 RUN conda config --system --add channels conda-forge && \
     conda config --system --add channels bioconda && \
     conda config --system --add channels defaults
 
-# Update conda first
-#RUN conda update -n base -c defaults conda -y
-
 RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
     conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
 
-# Install mamba
-RUN conda install -n base -c conda-forge mamba -y
+# Install Python 3.12 and Mamba
+RUN conda install -n base -c conda-forge -y \
+    python=3.12 \
+    mamba && \
+    conda clean -afy
+
+# ============================================================
+# Install Bioinformatics Tools
+# ============================================================
+
 RUN mamba install -y \
-    -c conda-forge \
-    -c bioconda \
     fastqc \
     fastp \
     star \
     subread \
-    samtools && \
+    samtools \
+    bedtools \
+    gsl \
+    pigz \
+    parallel && \
     conda clean -afy
 
-# Install MultiQC
-RUN pip3 install multiqc --break-system-packages
+# ============================================================
+# Install DESeq2
+# ============================================================
 
-# Install Bioconductor
 RUN R -e "install.packages('BiocManager', repos='https://cloud.r-project.org')"
 
-RUN R -e "BiocManager::install(c('DESeq2','SummarizedExperiment','BiocParallel'), ask=FALSE, update=FALSE)"
+RUN R -e "BiocManager::install('DESeq2', ask=FALSE, update=FALSE)"
 
-# Install CRAN packages
-RUN R -e "install.packages(c('ggplot2','pheatmap','rmarkdown','knitr','RColorBrewer','tidyr','dplyr'), repos='https://cloud.r-project.org')"
+# ============================================================
+# Additional R Packages
+# ============================================================
+
+RUN R -e "install.packages(c('pheatmap','RColorBrewer'), repos='https://cloud.r-project.org')"
+
+# ============================================================
+# Copy Pipeline Scripts
+# ============================================================
 
 WORKDIR /workspace
 
-COPY bin/ bin/
+COPY bin/ /workspace/bin/
 
-RUN chmod -R +x bin/
+RUN chmod -R +x /workspace/bin
 
-# Verify installation
-RUN fastqc --version && \
-    fastp --version && \
-    STAR --version && \
-    featureCounts -v && \
-    samtools --version && \
-    Rscript -e "library(DESeq2)"
+# ============================================================
+# Verify Installation
+# ============================================================
+
+RUN java -version
+
+RUN nextflow -version
+
+RUN fastqc --version
+
+RUN fastp --version
+
+RUN STAR --version
+
+RUN featureCounts -v
+
+RUN samtools --version
+
+RUN bedtools --version
+
+RUN Rscript -e "library(DESeq2); sessionInfo()"
+
+# ============================================================
+# Default Working Directory
+# ============================================================
+
+WORKDIR /workspace
 
 CMD ["/bin/bash"]

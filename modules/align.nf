@@ -1,10 +1,12 @@
 process STAR{
 
-    container 'quay.io/biocontainers/star:2.7.11b--h43eeafb_0'
+    //container 'quay.io/biocontainers/star:2.7.11b--h43eeafb_0'
 
     publishDir "results/star", mode: 'copy'
 
     tag "${sample_id}"
+
+    cpus params.star_cpus
 
     input:
     tuple val(sample_id), path(read)
