@@ -1,10 +1,10 @@
 nextflow.enable.dsl=2
 
 include { FASTQC } from './modules/fastqc'
-include { FASTQC as FASTQC_TRIM } from './modules/fastqc'
 include { FASTP } from './modules/fastp'
 include { STAR } from './modules/align'
 include { FEATURECOUNTS } from './modules/featurecounts'
+include { MULTIQC } from './modules/multiqc'
 
 //include workflow
 include { RNASEQ_WORKFLOW } from './workflows/rnaseq_workflow'
@@ -19,10 +19,12 @@ workflow {
         }
     reads.view()
 
+
     println "INPUT_DIR = ${params.input_dir}"
     qc_raw = FASTQC(reads)
+
     trimmed = FASTP(reads)
-    qc_trimmed = FASTQC_TRIM(trimmed.trimmed_reads)
+    
     aligned_reads = STAR(trimmed.trimmed_reads)
     bam_files = aligned_reads.aligned_reads
         .map{ sample_id, bam -> bam }
@@ -32,11 +34,8 @@ workflow {
         featurecounts_out.counts,
         file(params.meta),
         file(params.script_file),
-        params.design
-
-    )
-
-
-        
+        params.design)
+    MULTIQC(file(params.outdir))
+   
 
 }

@@ -10,6 +10,7 @@ process FEATURECOUNTS {
 
     output:
     path "gene_counts.txt", emit: counts
+    path "gene_counts.txt.summary"
 
     script:
     """
