@@ -1,19 +1,49 @@
 # RNA-Seq Differential Expression Pipeline
 
-A reproducible RNA-Seq analysis pipeline built with **Nextflow DSL2**. The pipeline performs quality control, read trimming, alignment, gene quantification, and differential expression analysis using DESeq2. It is designed to be portable through Docker and configurable for different experimental designs.
+A reproducible **RNA-Seq differential expression analysis pipeline** built using **Nextflow DSL2**. The pipeline performs quality assessment, read trimming, genome alignment, gene quantification, differential expression analysis, and consolidated quality reporting through **MultiQC**.
+
+The workflow is containerized using Docker to ensure portability and reproducibility across different computing environments.
 
 ---
 
 ## Workflow
 
+```
 FASTQ
-→ FastQC
-→ FastP
-→ FastQC
-→ STAR Alignment
-→ FeatureCounts
-→ DESeq2
-→ QC Plots & Differential Expression Results
+   │
+   ▼
+FastQC
+   │
+   ▼
+FastP
+   │
+   ▼
+STAR Alignment
+   │
+   ▼
+FeatureCounts
+   │
+   ▼
+DESeq2
+   │
+   ▼
+MultiQC
+```
+
+---
+
+## Features
+
+- Nextflow DSL2 modular workflow
+- Docker support for reproducible execution
+- FastQC quality assessment
+- FastP read trimming and filtering
+- STAR genome alignment
+- Gene quantification using FeatureCounts
+- Differential expression analysis using DESeq2
+- Configurable experimental design formula
+- Consolidated quality reports using MultiQC
+- Publication-ready visualizations
 
 ---
 
@@ -21,8 +51,6 @@ FASTQ
 
 - Nextflow (v25 or later)
 - Docker
-- Reference genome
-- Gene annotation (GTF)
 
 ---
 
@@ -70,13 +98,13 @@ SRR4280555.fastq.gz
 SRR4280556.fastq.gz
 ```
 
-The included `metadata.tsv` corresponds to this example dataset.
+The provided `metadata.tsv` corresponds to this example dataset.
 
 ---
 
 ## Metadata Format
 
-The metadata file must contain a sample identifier and one or more experimental variables.
+The metadata file must contain a **sample** column and one or more experimental variables.
 
 Example:
 
@@ -87,13 +115,13 @@ Example:
 | SRR4280550 | uzcR | Zn |
 | ... | ... | ... |
 
-The **sample** column must match the FASTQ filenames (without the `.fastq.gz` extension).
+The **sample** column must match the FASTQ filenames **without the `.fastq.gz` extension**.
 
 ---
 
 ## Running the Pipeline
 
-Basic execution:
+### Basic Execution
 
 ```bash
 nextflow run main.nf \
@@ -101,7 +129,7 @@ nextflow run main.nf \
     -with-docker
 ```
 
-Specify any valid DESeq2 design formula:
+### Specify a DESeq2 Design Formula
 
 ```bash
 nextflow run main.nf \
@@ -117,11 +145,11 @@ nextflow run main.nf \
     --design "~ condition + batch"
 ```
 
-The variables used in `--design` **must exist as column names in `metadata.tsv`**.
+The variables used in the design formula **must exist as column names in `metadata.tsv`**.
 
 ---
 
-## Output
+## Output Structure
 
 ```
 results/
@@ -129,21 +157,32 @@ results/
 ├── fastp/
 ├── star/
 ├── featurecounts/
-└── deseq2_results/
-    ├── normalized_counts.csv
-    ├── dea/
-    ├── plots/
-    └── qc/
+├── deseq2_results/
+│   ├── normalized_counts.csv
+│   ├── dea/
+│   ├── plots/
+│   └── qc/
+└── multiqc/
+    └── multiqc_report.html
 ```
 
-The pipeline automatically generates:
+---
+
+## Generated Reports
+
+### Quality Control
 
 - FastQC reports
-- FastP reports
-- STAR alignment outputs
-- Gene count matrix
-- Normalized counts
-- Differential expression tables
+- FastP trimming reports
+- STAR alignment statistics
+- FeatureCounts assignment summary
+- MultiQC consolidated report
+
+### Differential Expression
+
+- Raw gene count matrix
+- Normalized count matrix
+- Differential expression results
 - Significant gene lists
 - PCA plot
 - Volcano plots
@@ -152,14 +191,14 @@ The pipeline automatically generates:
 
 ---
 
-## Customisable Parameters
+## Configurable Parameters
 
 | Parameter | Description |
 |-----------|-------------|
 | `--design` | DESeq2 design formula |
 | `--input_dir` | Input FASTQ directory |
 | `--meta` | Metadata file |
-| `--gtf` | Annotation file |
+| `--gtf` | Gene annotation file |
 | `--genome` | STAR genome index |
 | `--min_quality` | FASTP quality threshold |
 | `--min_length` | Minimum read length |
@@ -174,7 +213,7 @@ Build the Docker image:
 docker build -t rnaseq-pipeline:1.0 -f docker/Dockerfile .
 ```
 
-Run with Docker:
+Run the pipeline:
 
 ```bash
 nextflow run main.nf \
@@ -184,9 +223,23 @@ nextflow run main.nf \
 
 ---
 
+## Software
+
+| Tool | Version |
+|------|---------|
+| Nextflow | DSL2 |
+| FastQC | Latest supported |
+| FastP | Latest supported |
+| STAR | Latest supported |
+| FeatureCounts (Subread) | Latest supported |
+| DESeq2 | Latest supported |
+| MultiQC | v1.35 |
+
+---
+
 ## Citation
 
-If you use this pipeline, please cite the original software packages:
+If you use this pipeline in your research, please cite the original publications of:
 
 - Nextflow
 - FastQC
@@ -194,5 +247,12 @@ If you use this pipeline, please cite the original software packages:
 - STAR
 - FeatureCounts (Subread)
 - DESeq2
+- MultiQC
 
 ---
+
+## Author
+
+**Stalin Dany Shaji**
+
+Bioinformatics Engineer

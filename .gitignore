@@ -9,6 +9,7 @@ report.html
 timeline.html
 flow.png
 trace-*
+trace.*
 
 # Input data
 data/
@@ -36,3 +37,7 @@ phase2_plan
 *~
 # Docker
 docker/.dockerignore
+
+#multiqc
+multiqc/*
+
