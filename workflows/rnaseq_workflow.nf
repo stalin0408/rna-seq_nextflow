@@ -12,12 +12,21 @@ workflow RNASEQ_WORKFLOW {
     design
 
     main:
+
+    println ">>> Entered RNASEQ_WORKFLOW"
+
+    counts.view { "Counts file = $it" }
+
+    println ">>> Calling DESEQ2_ANALYSIS"
+    
     results = DESEQ2_ANALYSIS(
         counts,
         metadata,
         script_file,
         design
     )
+    println ">>> Returned from DESEQ2_ANALYSIS"
+
 
 //    GENERATE_REPORT(results.collect())
 

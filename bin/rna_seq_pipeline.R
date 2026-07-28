@@ -1,90 +1,97 @@
 #!/usr/bin/env Rscript
 
-# ==========================================
-
+# ============================================================
 # RNA-seq DESeq2 Pipeline Script
-
-# ==========================================
+# ============================================================
 
 suppressPackageStartupMessages({
-library(DESeq2)
-library(pheatmap)
-library(ggplot2)
+
+    library(DESeq2)
+    library(pheatmap)
+    library(ggplot2)
+
 })
 
-# ==========================================
-
-# 1. Input Arguments
-
-# ==========================================
+# ============================================================
+# 1. Read Input Arguments
+# ============================================================
 
 args <- commandArgs(trailingOnly = TRUE)
 
-count_file   <- args[1]
+count_file    <- args[1]
 metadata_file <- args[2]
-design <- as.formula(args[3])
-outdir       <- args[3]
+design        <- as.formula(args[3])
+outdir        <- args[4]
 
+# Create output directory
 dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
 
 cat("📂 Count file:", count_file, "\n")
 cat("📂 Metadata file:", metadata_file, "\n")
 
-# ==========================================
+# ============================================================
+# 2. Load Count Matrix
+# ============================================================
 
-# 2. Load Count Data
+count <- read.table(
+    count_file,
+    header = TRUE,
+    sep = "",
+    check.names = FALSE
+)
 
-# ==========================================
-
-count <- read.table(count_file,
-header = TRUE,
-sep = "",
-check.names = FALSE)
-
-# Set GeneID as rownames
-
+# Set GeneID as row names
 rownames(count) <- count$GeneID
 
 # Remove GeneID column
-
 count <- count[, -1]
 
 cat("✅ Count matrix loaded:", dim(count), "\n")
 
-# ==========================================
+# ============================================================
+# 3. Load Sample Metadata
+# ============================================================
 
-# 3. Load Metadata
+metadata <- read.table(
+    metadata_file,
+    header = TRUE,
+    sep = "",
+    stringsAsFactors = TRUE
+)
 
-# ==========================================
+# Ensure metadata contains a sample column
+if (!"sample" %in% colnames(metadata)) {
 
-metadata <- read.table(metadata_file,
-header = TRUE,
-sep = "",
-stringsAsFactors = TRUE)
-if(!"sample" %in% colnames(metadata)){
     stop("Metadata should contain a column named 'sample'.")
+
 }
+
+# Set sample names as row names
 rownames(metadata) <- metadata$sample
+
+# Remove sample column
 metadata <- metadata[, colnames(metadata) != "sample"]
 
 cat("✅ Metadata loaded:", dim(metadata), "\n")
 
 cat("Metadata columns:\n")
-print(colnames(metadata))
 
 cat("Design formula:\n")
-print(design)
+
+# ============================================================
+# 4. Validate Design Formula
+# ============================================================
 
 # Extract variable names from the design formula
 design_vars <- all.vars(design)
 
 cat("Variables in design:\n")
-print(design_vars)
 
 # Find missing variables
 missing_vars <- setdiff(design_vars, colnames(metadata))
 
 if (length(missing_vars) > 0) {
+
     stop(
         paste0(
             "\n❌ Invalid design formula.\n",
@@ -94,53 +101,62 @@ if (length(missing_vars) > 0) {
             paste(colnames(metadata), collapse = ", ")
         )
     )
+
 }
 
 cat("✅ Design formula validated successfully.\n")
 
-#---------------------------------------------
+# ============================================================
+# 5. Prepare Count Matrix
+# ============================================================
+
 cat("\n===== COUNT MATRIX =====\n")
 cat("Dimensions:", dim(count), "\n")
 
 # Set gene IDs as row names
 rownames(count) <- count$Geneid
 
-cat("\nColumn names first print:\n")
-print(colnames(count))
+cat("\nColumn names (before processing):\n")
 
+# Select only sample columns
 sample_cols <- !colnames(count) %in% c(
-    "Geneid","GeneID",
-    "Chr","Start","End","Strand","Length"
+    "Geneid",
+    "GeneID",
+    "Chr",
+    "Start",
+    "End",
+    "Strand",
+    "Length"
 )
 
 count <- count[, sample_cols]
 
-# Remove featureCounts suffix
+# Remove featureCounts suffix from sample names
 colnames(count) <- sub(
     "\\.fastq\\.Aligned\\.sortedByCoord\\.out\\.bam$",
     "",
     colnames(count)
 )
-cat("\nColumn names:\n")
-print(colnames(count))
 
+cat("\nColumn names (after processing):\n")
 
-cat("\nMetadata:\n")
-print(rownames(metadata))
+cat("\nMetadata sample names:\n")
 
-# Check for missing samples
+# ============================================================
+# 6. Validate Sample Names
+# ============================================================
+
 count_samples <- colnames(count)
 meta_samples  <- rownames(metadata)
 
 if (!setequal(count_samples, meta_samples)) {
 
     cat("Samples in count but not metadata:\n")
-    print(setdiff(count_samples, meta_samples))
 
     cat("Samples in metadata but not count:\n")
-    print(setdiff(meta_samples, count_samples))
 
     stop("❌ Sample names do not match")
+
 }
 
 cat("✅ All sample names are present in both files\n")
@@ -153,116 +169,134 @@ stopifnot(identical(colnames(count), rownames(metadata)))
 
 cat("✅ Metadata reordered to match count matrix\n")
 
-#---------------------------------------------
-
-# ==========================================
-
-# 4. Validation Check
-
-# ==========================================
+# ============================================================
+# 7. Final Validation
+# ============================================================
 
 if (!all(colnames(count) == rownames(metadata))) {
-stop("❌ Sample mismatch between count matrix and metadata")
+
+    stop("❌ Sample mismatch between count matrix and metadata")
+
 }
 
 cat("✅ Sample names matched\n")
 
-# ==========================================
+# ============================================================
+# 8. Create DESeq2 Dataset
+# ============================================================
 
-# 5. Create DESeq2 Dataset
-
-# ==========================================
-print("test1")
 dds <- DESeqDataSetFromMatrix(
-countData = count,
-colData = metadata,
-design = design
+    countData = count,
+    colData   = metadata,
+    design    = design
 )
 
-# ==========================================
-
-# 6. Filter Low-Count Genes
-
-# ==========================================
+# ============================================================
+# 9. Filter Low-Count Genes
+# ============================================================
 
 dds <- dds[rowSums(counts(dds)) > 10, ]
 
 cat("✅ Genes after filtering:", nrow(dds), "\n")
 
-# ==========================================
-
-# 7. Run DESeq2
-
-# ==========================================
+# ============================================================
+# 10. Run DESeq2 Analysis
+# ============================================================
 
 dds <- DESeq(dds)
 
-# ==========================================
-
-# 8. Normalized Counts
-
-# ==========================================
+# ============================================================
+# 11. Export Normalized Counts
+# ============================================================
 
 normalized_counts <- counts(dds, normalized = TRUE)
-print("test2")
+
 cat("outdir =", outdir, "\n")
-print(outdir)
-write.csv(normalized_counts,
-file = file.path(outdir, "normalized_counts.csv"))
 
-# ==========================================
+write.csv(
+    normalized_counts,
+    file = file.path(outdir, "normalized_counts.csv")
+)
 
-# 9. Variance Stabilization
-
-# ==========================================
+# ============================================================
+# 12. Variance Stabilizing Transformation (VST)
+# ============================================================
 
 vsd <- varianceStabilizingTransformation(dds)
 
-# ==========================================
+# ============================================================
+# 13. Create Output Directories
+# ============================================================
 
-# ==========================================
-# Create output directories (FIRST)
-# ==========================================
-dir.create(outdir, showWarnings = FALSE)
-dir.create(file.path(outdir, "qc"), showWarnings = FALSE)
-dir.create(file.path(outdir, "plots"), showWarnings = FALSE)
-dir.create(file.path(outdir, "dea"), showWarnings = FALSE)
+dir.create(
+    outdir,
+    showWarnings = FALSE
+)
 
-# ==========================================
-# PCA Plot
-# ==========================================
+dir.create(
+    file.path(outdir, "qc"),
+    showWarnings = FALSE
+)
+
+dir.create(
+    file.path(outdir, "plots"),
+    showWarnings = FALSE
+)
+
+dir.create(
+    file.path(outdir, "dea"),
+    showWarnings = FALSE
+)
+
+# ============================================================
+# 14. Principal Component Analysis (PCA)
+# ============================================================
+
 pdf(file.path(outdir, "plots/PCA.pdf"))
-plotPCA(vsd, intgroup = c("genotype", "zinc"))
+
+plotPCA(
+    vsd,
+    intgroup = c("genotype", "zinc")
+)
+
 dev.off()
 
-# ==========================================
-# Sample Distance Heatmap
-# ==========================================
+# ============================================================
+# 15. Sample Distance Heatmap
+# ============================================================
+
 sampleDists <- dist(t(assay(vsd)))
+
 sampleDistMatrix <- as.matrix(sampleDists)
 
 pdf(file.path(outdir, "qc/sample_heatmap.pdf"))
-pheatmap(sampleDistMatrix,
-         clustering_distance_rows = sampleDists,
-         clustering_distance_cols = sampleDists)
+
+pheatmap(
+    sampleDistMatrix,
+    clustering_distance_rows = sampleDists,
+    clustering_distance_cols = sampleDists
+)
+
 dev.off()
-print("test3")
-# ==========================================
-# Boxplot
-# ==========================================
+
+# ============================================================
+# 16. Sample Distribution Boxplot
+# ============================================================
+
 pdf(file.path(outdir, "qc/boxplot.pdf"))
-boxplot(assay(vsd),
-        main = "Boxplot of Samples",
-        las = 2)
+
+boxplot(
+    assay(vsd),
+    main = "Boxplot of Samples",
+    las  = 2
+)
+
 dev.off()
-print("test4")
-# ==========================================
-# DESeq2 Results
-# ==========================================
+# ============================================================
+# 17. Differential Expression Analysis
+# ============================================================
 
 coef_names <- resultsNames(dds)
-
-print(coef_names)
 
 dir.create(
     file.path(outdir, "dea"),
@@ -272,44 +306,65 @@ dir.create(
 
 for (coef in coef_names) {
 
-    # Skip intercept
+    # Skip the intercept coefficient
     if (coef == "Intercept")
         next
 
-    res <- results(dds, name = coef)
+    # Extract differential expression results
+    res <- results(
+        dds,
+        name = coef
+    )
 
+    # Sort by adjusted p-value
     res <- res[order(res$padj, na.last = TRUE), ]
+
+    # ========================================================
+    # Export complete results
+    # ========================================================
 
     write.csv(
         as.data.frame(res),
-        file = file.path(outdir, "dea", paste0(coef, ".csv")),
+        file = file.path(
+            outdir,
+            "dea",
+            paste0(coef, ".csv")
+        ),
         row.names = TRUE
     )
 
-    # ------------------------------
-    # Significant genes
-    # ------------------------------
+    # ========================================================
+    # Export significantly differentially expressed genes
+    # ========================================================
+
     resSig <- res[which(res$padj < 0.05), ]
 
     write.csv(
         as.data.frame(resSig),
-        file = file.path(outdir,
-                         "dea",
-                         paste0(coef, "_significant.csv")),
+        file = file.path(
+            outdir,
+            "dea",
+            paste0(coef, "_significant.csv")
+        ),
         row.names = TRUE
     )
 
-    # ------------------------------
+    # ========================================================
     # Volcano Plot
-    # ------------------------------
-    pdf(file.path(outdir,
-                  "plots",
-                  paste0("volcano_", coef, ".pdf")))
+    # ========================================================
+
+    pdf(
+        file.path(
+            outdir,
+            "plots",
+            paste0("volcano_", coef, ".pdf")
+        )
+    )
 
     plot(
         res$log2FoldChange,
         -log10(res$pvalue),
-        pch = 20,
+        pch  = 20,
         main = coef,
         xlab = "Log2 Fold Change",
         ylab = "-log10(p-value)"
@@ -317,14 +372,19 @@ for (coef in coef_names) {
 
     dev.off()
 
-    # ------------------------------
-    # Top 20 genes
-    # ------------------------------
+    # ========================================================
+    # Heatmap of Top 20 Differentially Expressed Genes
+    # ========================================================
+
     topGenes <- head(order(res$padj), 20)
 
-    pdf(file.path(outdir,
-                  "plots",
-                  paste0("heatmap_", coef, ".pdf")))
+    pdf(
+        file.path(
+            outdir,
+            "plots",
+            paste0("heatmap_", coef, ".pdf")
+        )
+    )
 
     pheatmap(
         assay(vsd)[topGenes, ],
@@ -334,8 +394,11 @@ for (coef in coef_names) {
     )
 
     dev.off()
+
 }
 
+# ============================================================
+# 18. Pipeline Completed Successfully
+# ============================================================
+
 cat("🎉 RNA-seq pipeline completed successfully!\n")
-
-

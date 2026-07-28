@@ -1,6 +1,6 @@
 process FASTP {
 
-    //container 'quay.io/biocontainers/fastp:0.23.4--h5f740d0_0'
+    // container 'quay.io/biocontainers/fastp:0.23.4--h5f740d0_0'
 
     publishDir "results/fastp", mode: 'copy'
 
@@ -21,6 +21,7 @@ process FASTP {
 
     script:
     """
+    # Run FASTP for quality filtering and adapter trimming
     fastp \
         -i ${read} \
         -o ${sample_id}.trimmed.fastq.gz \

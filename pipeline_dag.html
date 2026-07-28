@@ -36,56 +36,68 @@
 flowchart TB
     subgraph " "
     v0["Channel.fromPath"]
-    v15["gtf"]
-    v18["metadata"]
-    v19["script_file"]
-    v20["design"]
-    v23["results_dir"]
+    v7["genome"]
+    v8["gtf"]
+    v19["genome_index"]
+    v24["metadata"]
+    v25["script_file"]
+    v26["design"]
+    v29["results_dir"]
     end
+    v2(["FASTQC"])
     subgraph " "
     v3[" "]
     v5[" "]
-    v7[" "]
-    v8[" "]
-    v10[" "]
-    v11[" "]
-    v12[" "]
-    v17[" "]
-    v22[" "]
-    v25[" "]
+    v6[" "]
+    v13[" "]
+    v14[" "]
+    v15[" "]
+    v16[" "]
+    v21[" "]
+    v23[" "]
+    v28[" "]
+    v31[" "]
     end
-    v4(["FASTQC"])
-    v6(["FASTP"])
-    v9(["STAR"])
-    v16(["FEATURECOUNTS"])
+    v4(["FASTP"])
+    v9(["STAR_INDEX"])
+    v12(["STAR"])
+    v20(["FEATURECOUNTS"])
     subgraph "RNASEQ_WORKFLOW [RNASEQ_WORKFLOW]"
-    v21(["DESEQ2_ANALYSIS"])
+    v27(["DESEQ2_ANALYSIS"])
+    v22(( ))
     end
-    v24(["MULTIQC"])
+    v30(["MULTIQC"])
     v1(( ))
-    v13(( ))
+    v10(( ))
+    v17(( ))
     v0 --> v1
-    v1 --> v3
+    v1 --> v2
+    v2 --> v3
     v1 --> v4
+    v4 --> v6
     v4 --> v5
-    v1 --> v6
-    v6 --> v9
-    v6 --> v8
-    v6 --> v7
-    v9 --> v12
-    v9 --> v11
+    v4 --> v10
+    v7 --> v9
+    v8 --> v9
     v9 --> v10
-    v9 --> v13
-    v15 --> v16
-    v13 --> v16
-    v16 --> v21
-    v16 --> v17
-    v18 --> v21
-    v19 --> v21
+    v10 --> v12
+    v12 --> v16
+    v12 --> v15
+    v12 --> v14
+    v12 --> v13
+    v12 --> v17
+    v19 --> v20
+    v17 --> v20
     v20 --> v21
-    v21 --> v22
-    v23 --> v24
-    v24 --> v25
+    v20 --> v27
+    v20 --> v22
+    v22 --> v23
+    v24 --> v27
+    v25 --> v27
+    v26 --> v27
+    v27 --> v28
+    v29 --> v30
+    v30 --> v31
 
 </pre>
 <script type="module">
